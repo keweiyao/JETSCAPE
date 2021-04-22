@@ -204,10 +204,11 @@ void TrentoInitial::InitTask() {
   double xymax = GetXMax(), dxy = GetXStep();
   double etamax = GetZMax(), deta = GetZStep();
 
-  auto random_seed = (*GetMt19937Generator())();
+  //auto random_seed = (*GetMt19937Generator())();
   //TEMPORARY FOR TESTING
   //auto random_seed = 1;
   //TEMPORARY
+  int random_seed = std::atof(phy_opts->Attribute("random-seed"));
   JSINFO << "Random seed used for Trento " << random_seed;
 
   std::string proj(phy_opts->Attribute("projectile"));
@@ -216,30 +217,41 @@ void TrentoInitial::InitTask() {
   double cross_section = std::atof(phy_opts->Attribute("cross-section"));
   double normalization = std::atof(phy_opts->Attribute("normalization"));
 
-  int cen_low = std::atoi(cut_opts->Attribute("centrality-low"));
-  int cen_high = std::atoi(cut_opts->Attribute("centrality-high"));
+  //int cen_low = std::atoi(cut_opts->Attribute("centrality-low"));
+  //int cen_high = std::atoi(cut_opts->Attribute("centrality-high"));
+  double b-min = std::atof(cut_opts->Attribute("b-min"));
+  double b-max = std::atof(cut_opts->Attribute("b-max"));
 
   double p = std::atof(trans_opts->Attribute("reduced-thickness"));
   double k = std::atof(trans_opts->Attribute("fluctuation"));
   double w = std::atof(trans_opts->Attribute("nucleon-width"));
   double d = std::atof(trans_opts->Attribute("nucleon-min-dist"));
 
-  double mean = std::atof(longi_opts->Attribute("mean-coeff"));
-  double var = std::atof(longi_opts->Attribute("std-coeff"));
-  double skew = std::atof(longi_opts->Attribute("skew-coeff"));
-  int skew_type = std::atof(longi_opts->Attribute("skew-type"));
-  double J = std::atof(longi_opts->Attribute("jacobian"));
+  //double mean = std::atof(longi_opts->Attribute("mean-coeff"));
+  //double var = std::atof(longi_opts->Attribute("std-coeff"));
+  //double skew = std::atof(longi_opts->Attribute("skew-coeff"));
+  //int skew_type = std::atof(longi_opts->Attribute("skew-type"));
+  //double J = std::atof(longi_opts->Attribute("jacobian"));
 
+  //std::string options1 =
+  //    +" --random-seed " + std::to_string(random_seed) + " --cross-section " +
+  //    std::to_string(cross_section) + " --beam-energy " +
+  //    std::to_string(sqrts) + " --reduced-thickness " + std::to_string(p) +
+  //    " --fluctuation " + std::to_string(k) + " --nucleon-width " +
+  //    std::to_string(w) + " --nucleon-min-dist " + std::to_string(d) +
+  //    " --mean-coeff " + std::to_string(mean) + " --std-coeff " +
+  //    std::to_string(var) + " --skew-coeff " + std::to_string(skew) +
+  //    " --skew-type " + std::to_string(skew_type) + " --jacobian " +
+  //    std::to_string(J) + " --quiet ";
   std::string options1 =
       +" --random-seed " + std::to_string(random_seed) + " --cross-section " +
       std::to_string(cross_section) + " --beam-energy " +
       std::to_string(sqrts) + " --reduced-thickness " + std::to_string(p) +
       " --fluctuation " + std::to_string(k) + " --nucleon-width " +
-      std::to_string(w) + " --nucleon-min-dist " + std::to_string(d) +
-      " --mean-coeff " + std::to_string(mean) + " --std-coeff " +
-      std::to_string(var) + " --skew-coeff " + std::to_string(skew) +
-      " --skew-type " + std::to_string(skew_type) + " --jacobian " +
-      std::to_string(J) + " --quiet ";
+      std::to_string(w) + " --nucleon-min-dist " + std::to_string(d)
+      + " --b-min " + std::to_string(b-min)
+      + " --b-max " + std::to_string(b-max)
+      + " --quiet ";
   std::string options2 = " --normalization " + std::to_string(normalization) +
                          " --ncoll " // calcualte # of binary collision
                          + " --xy-max " + std::to_string(xymax) +
