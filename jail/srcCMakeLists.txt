@@ -14,6 +14,7 @@ set (SOURCES
   HardProcess.cc
   Collision.cc
   TrentoInitial.cc
+  Trento3DInitial.cc
   JetScapeLogger.cc
   JetScapeXML.cc
   JetEnergyLoss.cc
@@ -64,7 +65,7 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/data_table)
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data_table/
             DESTINATION ${CMAKE_BINARY_DIR}/data_table)
 
-target_link_libraries(JetScape libtrento ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
+target_link_libraries(JetScape libtrento libtrento-3 ${Boost_LIBRARIES} ${HDF5_LIBRARIES})
 
 #target_link_libraries(JetScape JetScapeHydro GTL)
 target_link_libraries(JetScape JetScapeHydro GTL ${PYTHIA8_LIBRARIES} )

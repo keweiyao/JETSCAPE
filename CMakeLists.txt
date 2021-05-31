@@ -133,6 +133,9 @@ message(STATUS "CXX_FLAGS = " ${CMAKE_CXX_FLAGS})
 # and before install options (cause it overwrites the default location)
 add_subdirectory(external_packages/trento/)
 include_directories("${CMAKE_SOURCE_DIR}/external_packages/trento/src/")
+
+add_subdirectory(external_packages/trento3d/)
+include_directories("${CMAKE_SOURCE_DIR}/external_packages/trento3d/src/")
 ###########################
 
 add_subdirectory(external_packages/googletest/)

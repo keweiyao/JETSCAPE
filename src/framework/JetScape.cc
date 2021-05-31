@@ -189,6 +189,15 @@ void JetScape::DetermineTaskListFromXML() {
                       "Trento module to task list.";
           }
         }
+        //   - Trento-3D
+        else if (childElementName == "Trento3D") {
+          auto trento3d = JetScapeModuleFactory::createInstance("Trento3DInitial");
+          if (trento3d) {
+            Add(trento3d);
+            JSINFO << "JetScape::DetermineTaskList() -- Initial State: Added "
+                      "Trento-3D module to task list.";
+          }
+        }
         //   - Read initial conditions from file
         else if (childElementName == "initial_profile_path") {
 #ifdef USE_HDF5

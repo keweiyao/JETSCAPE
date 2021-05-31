@@ -48,7 +48,8 @@
     <grid_step_x> 0.3 </grid_step_x>
     <grid_step_y> 0.3 </grid_step_y>
     <grid_step_z> 0.2 </grid_step_z>
-    
+
+<!--
     <Trento>
     <PhysicsInputs  projectile='Pb'
             target='Pb'
@@ -71,6 +72,30 @@
             jacobian="0.8">
     </LongiInputs>
     </Trento>
+-->
+    <Trento3D>
+    <PhysicsInputs  projectile='Pb'
+            target='Pb'
+            sqrts='2760'
+            normalization='0.4'
+            mid-power='0.37'>
+    </PhysicsInputs>
+    <CutInputs  centrality-low='50'
+          centrality-high='60'>
+    </CutInputs>
+    <TransInputs  reduced-thickness='0.0'
+            nucleon-width="0.6"
+            nucleon-min-dist="0"
+            constit-number="3"
+            constit-width="0.4">
+    </TransInputs>
+    <LongiInputs  fluctuation='0.3'
+            kT-min="0.2"
+            shape-alpha="4"
+            shape-beta="0.4"
+            flatness="1.25">
+    </LongiInputs>
+    </Trento3D>
 
     <!-- Options to read initial conditions from saved file  -->
     <initial_profile_path>../examples/test_hydro_files</initial_profile_path>
