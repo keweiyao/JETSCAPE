@@ -261,9 +261,7 @@ inline double NucleonCommon::deterministic_thickness(
 
 // WK
 inline double NucleonCommon::norm_Tpp(double bpp_sqr) const  {
-  return prefactor_ * fast_exp_(-prefactor_ * bpp_sqr / 2.) / 2.;  ///TODO: verify this!///XXX///
-  ///TODO///return one_div_four_pi_ / width_sqr_
-  ///TODO///              * fast_exp_(neg_one_div_four_width_sqr_*bpp_sqr);
+  return prefactor_ * constituent_number_ * std::exp(-prefactor_ * M_PI * constituent_number_ * bpp_sqr / 2.) / 2.;  // TODO: verify this, and use fast_exp_ (will need to adjust xmin in constructor)
 }
 
 inline double NucleonCommon::fragmentation(
