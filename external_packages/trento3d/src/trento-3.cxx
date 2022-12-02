@@ -111,6 +111,9 @@ int main(int argc, char* argv[]) {
      po::value<int64_t>()->value_name("INT")->default_value(-1, "auto"),
      "random seed")
     // Nulcear configuration parameters
+    ("form-width",
+     po::value<double>()->value_name("FLOAT")->default_value(.5, "0.5"),
+     "form-factor width of inelastic collisions [fm] (0.35, 1.0)")
     ("nucleon-width,w",
      po::value<double>()->value_name("FLOAT")->default_value(.5, "0.5"),
      "Gaussian nucleon width [fm] (0.35, 1.4)")
@@ -118,7 +121,7 @@ int main(int argc, char* argv[]) {
      po::value<double>()->value_name("FLOAT")->default_value(.5, "same"),
      "Gaussian constituent width [fm]")
     ("constit-number,m",
-     po::value<int>()->value_name("INT")->default_value(1, "1"),
+     po::value<double>()->value_name("FLOAT")->default_value(1, "1.0"),
      "Number of constituents in the nucleon")
     ("nucleon-min-dist,d",
      po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
@@ -141,6 +144,15 @@ int main(int argc, char* argv[]) {
     ("mult-max",
      po::value<double>()->value_name("FLOAT")->default_value(
      std::numeric_limits<double>::max(), "DOUBLE_MAX"), "maxmimum midrapidity dET/detas cut")
+    ("etas-shift",
+     po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
+     "eta at grid center, use if Ebeam1 != Ebeam2")
+    ("mult-etas-low",
+     po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
+     "eta lower bound for calculating multiplicity")
+    ("mult-etas-high",
+     po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
+     "eta upper bound for calculating multiplicity")
     ("sqrts,s",
      po::value<double>()->value_name("FLOAT")->default_value(2760., "2760."),
      "CoM energy of collision [GeV], determines cross-section, ybeam, etc")
@@ -261,7 +273,10 @@ int main(int argc, char* argv[]) {
 
     double nucleon_width = var_map["nucleon-width"].as<double>();
     double constituent_width = var_map["constit-width"].as<double>();
-    int constituent_number = var_map["constit-number"].as<int>();
+    double constituent_number = var_map["constit-number"].as<double>();
+
+    if (constituent_number < 1.)
+      throw po::error{"must have at least one constituent"};
 
     // Constituent and nucleon widths must be non-negative.
     if ((nucleon_width < 0) || (constituent_width < 0))
@@ -272,7 +287,7 @@ int main(int argc, char* argv[]) {
       throw po::error{"constituent width cannot be larger than nucleon width"};
 
     // Cannot fit nucleon width using single constituent if different sizes.
-    if ((constituent_width < nucleon_width) && constituent_number == 1)
+    if ((constituent_width < nucleon_width) && constituent_number <= 1.)
       throw po::error{"cannot fit nucleon width using single constituent if different sizes"};
 
     if (var_map["nsteps-etas"].as<int>() <= 0)

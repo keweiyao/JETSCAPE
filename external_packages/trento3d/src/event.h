@@ -11,11 +11,10 @@
 #define BOOST_DISABLE_ASSERTS
 #endif
 #include <boost/multi_array.hpp>
-#include <boost/math/interpolators/cardinal_cubic_b_spline.hpp>
-using boost::math::interpolators::cardinal_cubic_b_spline;
 
 #include "fwd_decl.h"
 //#include "random_field.h"
+#include "fast_exp.h"
 
 namespace trento3d {
 
@@ -91,9 +90,8 @@ class Event {
   /// Multiplicity---or more specifically, total integrated reduced thickness.  May be interpreted
   /// as `dS/d\eta` or `dE/d\eta` at midrapidity.
   /// \endrst
-  const double& multiplicity() const
-  { return dET_detas_[std::floor(nsteps_etas_/2)]; }
-
+  double multiplicity() const
+  { return multiplicity_; }
 
   const std::vector<double> & dET_detas() const
   { return dET_detas_; }
@@ -116,7 +114,7 @@ class Event {
   { return Density_; }
 
   /// returns grid steps
-  const double& dxy() const
+  double dxy() const
   { return dxy_; }
 
   /// WK: The TAB grid for hard process vertex sampling
@@ -129,7 +127,7 @@ class Event {
 
   double central_profile(double eta) const{
      if (std::abs(eta)>eta_max_) return 0.;
-     double u = eta*eta/2./eta_max_;
+     double u = eta*eta/2./(eta_max_-3.0);
      return std::exp(-std::pow(u, flatness_))
            *std::pow(1.-std::pow(eta/eta_max_, 4), 4);
   }
@@ -166,6 +164,8 @@ class Event {
   const double kT_min_;
   const double sqrts_, nucleon_pabs_;
   const double eta_max_, eta_grid_max_;
+  const double etas_shift_;
+  const double mult_etas_low_, mult_etas_high_;
 
   /// Number of grid steps
   const int nsteps_etas_;  
@@ -181,6 +181,8 @@ class Event {
 
   // 3D grid for matter deposition density
   Grid3D Density_;
+
+  double multiplicity_;
 
   /// Center of mass coordinates in "units" of grid index (not fm).
   /// as an array of rapidity
@@ -199,6 +201,8 @@ class Event {
   std::map<int, std::vector<double> > ecc_mag_;
   /// participant plane angles
   std::map<int, std::vector<double> > ecc_ang_;
+
+  FastExp<> fastexp_xa_xb_;
 };
 
 }  // namespace trento3d

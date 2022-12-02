@@ -16,7 +16,8 @@
 # download the code package
 #git clone git://git.code.sf.net/p/music-hydro/code music
 #git clone --depth=1 git://git.code.sf.net/p/music-hydro/code music
-git clone --depth=1 https://github.com/MUSIC-fluid/MUSIC music
+#git clone --depth=1 https://github.com/MUSIC-fluid/MUSIC music
+git clone --depth=1 https://github.com/dereksoeder/MUSIC music -b trento3dintegration
 
 
 ### ALTERNATIVE VERSION

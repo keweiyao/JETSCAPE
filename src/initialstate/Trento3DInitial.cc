@@ -115,6 +115,9 @@ void Trento3DInitial::InitTask() {
      po::value<int64_t>()->value_name("INT")->default_value(-1, "auto"),
      "random seed")
     // Nulcear configuration parameters
+    ("form-width",
+     po::value<double>()->value_name("FLOAT")->default_value(.5, "0.5"),
+     "form-factor width of inelastic collisions [fm] (0.35, 1.0)")
     ("nucleon-width,w",
      po::value<double>()->value_name("FLOAT")->default_value(.5, "0.5"),
      "Gaussian nucleon width [fm] (0.35, 1.4)")
@@ -122,7 +125,7 @@ void Trento3DInitial::InitTask() {
      po::value<double>()->value_name("FLOAT")->default_value(.5, "same"),
      "Gaussian constituent width [fm]")
     ("constit-number,m",
-     po::value<int>()->value_name("INT")->default_value(1, "1"),
+     po::value<double>()->value_name("FLOAT")->default_value(1., "1"),
      "Number of constituents in the nucleon")
     ("nucleon-min-dist,d",
      po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
@@ -145,6 +148,15 @@ void Trento3DInitial::InitTask() {
     ("mult-max",
      po::value<double>()->value_name("FLOAT")->default_value(
      std::numeric_limits<double>::max(), "DOUBLE_MAX"), "maxmimum midrapidity dET/detas cut")
+    ("etas-shift",
+     po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
+     "eta at grid center, use if Ebeam1 != Ebeam2")
+    ("mult-etas-low",
+     po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
+     "eta lower bound for calculating multiplicity")
+    ("mult-etas-high",
+     po::value<double>()->value_name("FLOAT")->default_value(0., "0"),
+     "eta upper bound for calculating multiplicity")
     ("sqrts,s",
      po::value<double>()->value_name("FLOAT")->default_value(2760., "2760."),
      "CoM energy of collision [GeV], determines cross-section, ybeam, etc")
@@ -219,13 +231,17 @@ void Trento3DInitial::InitTask() {
   std::string proj(phy_opts->Attribute("projectile"));
   std::string targ(phy_opts->Attribute("target"));
   double sqrts = std::atof(phy_opts->Attribute("sqrts"));
-  double normalization = std::atof(phy_opts->Attribute("normalization"));
+  double mid_norm = std::atof(phy_opts->Attribute("mid-norm"));
   double mid_power = std::atof(phy_opts->Attribute("mid-power"));
 
   int cen_low = std::atoi(cut_opts->Attribute("centrality-low"));
   int cen_high = std::atoi(cut_opts->Attribute("centrality-high"));
+  double etas_shift = std::atof(cut_opts->Attribute("etas-shift"));
+  double mult_etas_low = std::atof(cut_opts->Attribute("mult-etas-low"));
+  double mult_etas_high = std::atof(cut_opts->Attribute("mult-etas-high"));
 
   double p = std::atof(trans_opts->Attribute("reduced-thickness"));
+  double u = std::atof(trans_opts->Attribute("form-width"));
   double w = std::atof(trans_opts->Attribute("nucleon-width"));
   double d = std::atof(trans_opts->Attribute("nucleon-min-dist"));
   int    m = std::atoi(trans_opts->Attribute("constit-number"));
@@ -237,10 +253,10 @@ void Trento3DInitial::InitTask() {
   double beta     = std::atof(longi_opts->Attribute("shape-beta"));
   double flatness = std::atof(longi_opts->Attribute("flatness"));
 
-  std::string options1 =
-      " --random-seed "       + std::to_string(random_seed) +
+  std::string options1 =  // options affecting centrality table
       " --sqrts "             + std::to_string(sqrts) +
       " --reduced-thickness " + std::to_string(p) + //TODO//need backward compat work on trento-3 side//XXX//
+      " --form-width "        + std::to_string(u) +
       " --nucleon-width "     + std::to_string(w) +
       " --nucleon-min-dist "  + std::to_string(d) +
       " --constit-number "    + std::to_string(m) +
@@ -250,17 +266,21 @@ void Trento3DInitial::InitTask() {
       " --shape-alpha "       + std::to_string(alpha) +
       " --shape-beta "        + std::to_string(beta) +
       " --flatness "          + std::to_string(flatness) +
+      " --mid-norm "          + std::to_string(mid_norm) +
+      " --mid-power "         + std::to_string(mid_power) +
+      " --nsteps-etas "       + std::to_string(static_cast<int>(std::round( 2. * GetZMax() / GetZStep() ))) +//TODO//is this right for now? should revamp JETSCAPE config to do this better//XXX//
+      " --etas-shift "        + std::to_string(etas_shift) +
+      " --mult-etas-low "     + std::to_string(mult_etas_low) +
+      " --mult-etas-high "    + std::to_string(mult_etas_high) +
       " --quiet ";
   std::string options2 =
-      " --mid-norm "    + std::to_string(normalization) + //TODO//mid-norm is not the same as normalization; they differ by M_proton * (sqrts/M_proton)**mid_power//XXX//
-      " --mid-power "   + std::to_string(mid_power) +
-      " --ncoll "       + // calcualte # of binary collision
-      " --grid-max "    + std::to_string(xymax) +
-      " --grid-step "   + std::to_string(dxy) +
-      " --nsteps-etas " + std::to_string(static_cast<int>(std::round( 2. * GetZMax() / GetZStep() )));//TODO//is this right for now? should revamp JETSCAPE config to do this better//XXX//
+      " --random-seed "       + std::to_string(random_seed) +
+      " --ncoll "             + // calcualte # of binary collision
+      " --grid-max "          + std::to_string(xymax) +
+      " --grid-step "         + std::to_string(dxy);
 
   // Handle centrality table, not normzlized, default grid, 2D (fast) !!!
-  std::string cmd_basic = proj + " " + targ + " 10000 " + options1;
+  std::string cmd_basic = proj + " " + targ + " 10000 --random-seed 1 " + options1;  // random seed shouldn't matter, but specify a fixed seed anyway for reproducibility
   VarMap var_map_basic{};
   po::store(po::command_line_parser(tokenize(cmd_basic))
                 .options(all_opts)
@@ -274,8 +294,8 @@ void Trento3DInitial::InitTask() {
               "inelastic cross-section";
   } else {
     auto Ecut = GenCenTab(proj, targ, var_map_basic, cen_low, cen_high);
-    double Ehigh = Ecut.first * normalization; // rescale the cut
-    double Elow = Ecut.second * normalization; // rescale the cut
+    double Ehigh = Ecut.first;
+    double Elow = Ecut.second;
 
     JSINFO << "The total energy density cut for centrality = [" << cen_low
            << ", " << cen_high << "] (%) is:";
@@ -316,18 +336,45 @@ std::pair<double, double> Trento3DInitial::GenCenTab(std::string proj,
   // Normalization prefactor parameter is factorized
   // They form a table header
   trento3d::Collider another_collider(var_map);
-  double beamE = var_map["sqrts"].as<double>();
-//TODO//think more about this
-  double xsection = 0.;//var_map["cross-section"].as<double>();
-  double pvalue = 0.;//var_map["reduced-thickness"].as<double>();
-//XXX//
-  double fluct = var_map["fluctuation"].as<double>();
-  double nuclw = var_map["nucleon-width"].as<double>();
-  double dmin = var_map["nucleon-min-dist"].as<double>();
-  char buffer[512];
-  std::sprintf(buffer, "%s-%s-E-%1.0f-X-%1.2f-p-%1.2f-k-%1.2f-w-%1.2f-d-%1.2f",
-               proj.c_str(), targ.c_str(), beamE, xsection, pvalue, fluct,
-               nuclw, dmin);
+  auto sqrts          = var_map["sqrts"].as<double>();
+  auto form_width     = var_map["form-width"].as<double>();
+  auto nucleon_width  = var_map["nucleon-width"].as<double>();
+  auto constit_width  = var_map["constit-width"].as<double>();
+  auto constit_number = var_map["constit-number"].as<double>();
+  auto dmin           = var_map["nucleon-min-dist"].as<double>();
+  auto kT_min         = var_map["kT-min"].as<double>();
+  auto shape_alpha    = var_map["shape-alpha"].as<double>();
+  auto shape_beta     = var_map["shape-beta"].as<double>();
+  auto mid_norm       = var_map["mid-norm"].as<double>();
+  auto mid_power      = var_map["mid-power"].as<double>();
+  auto fluctuation    = var_map["fluctuation"].as<double>();
+  auto flatness       = var_map["flatness"].as<double>();
+  auto nsteps_etas    = var_map["nsteps-etas"].as<int>();  // nsteps_etas doesn't affect the continuous function dET/detas, but does affect at which etas it's evaluated, and thus the reported multiplicity
+  auto etas_shift     = var_map["etas-shift"].as<double>();
+  auto mult_etas_low  = var_map["mult-etas-low"].as<double>();
+  auto mult_etas_high = var_map["mult-etas-high"].as<double>();
+  char buffer[512] = {};  // initializer ensures there's a terminating NUL
+  std::snprintf(buffer, sizeof(buffer) - 1,
+                "%s_%s_%.1f_u%.4f_w%.4f_v%.4f_m%.4f_d%.4f_kT%.4f_a%.4f_b%.4f_N%.4f_pmid%.4f_k%.4f_f%.4f_netas%d_etassh%.4f_multetas%.4f_%.4f",
+                 proj.c_str(),
+                    targ.c_str(),
+                       sqrts,
+                             form_width,
+                                   nucleon_width,
+                                         constit_width,
+                                               constit_number,
+                                                     dmin,
+                                                            kT_min,
+                                                                  shape_alpha,
+                                                                        shape_beta,
+                                                                              mid_norm,
+                                                                                       mid_power,
+                                                                                             fluctuation,
+                                                                                                   flatness,
+                                                                                                             nsteps_etas,
+                                                                                                                      etas_shift,
+                                                                                                                                   mult_etas_low,
+                                                                                                                                        mult_etas_high);
   std::string header(buffer);
   JSINFO << "TRENTo-3D centrality table header: " << header;
   // Create headering string hash tage for these parameter combination
@@ -369,19 +416,23 @@ std::pair<double, double> Trento3DInitial::GenCenTab(std::string proj,
     // write centrality table
     int nstep = std::ceil(event_records.size() / 100);
     std::ofstream fout(filepath);
-    fout << "#\tproj\ttarj\tsqrts\tx\tp\tk\tw\td\n"
-         << "#\t" << proj << "\t" << targ << "\t" << beamE << "\t" << xsection
-         << "\t" << pvalue << "\t" << fluct << "\t" << nuclw << "\t" << dmin
-         << "\n"
-         << "#\tcen_L\tcen_H\tun-normalized total density\n";
+    fout << "# projectile target sqrts "
+           << "form_width nucleon_width constit_width constit_number dmin kT_min shape_alpha shape_beta mid_norm mid_power fluctuation flatness "
+           << "nsteps_etas etas_shift mult_etas_low mult_etas_high" << std::endl
+         << "# " << proj << " " << targ << " " << sqrts
+          << " " << form_width << " " << nucleon_width << " " << constit_width << " " << constit_number << " " << dmin
+          << " " << kT_min << " " << shape_alpha << " " << shape_beta << " " << mid_norm << " " << mid_power << " " << fluctuation << " " << flatness
+          << " " << nsteps_etas << " " << etas_shift << " " << mult_etas_low << " " << mult_etas_high
+          << std::endl
+         << "# cen_L  cen_H  un-normalized total density" << std::endl;
     Etab[0] = 1e10;
     for (int i = 1; i < 100; i += 1) {
       auto ee = event_records[i * nstep];
-      fout << i - 1 << "\t" << i << "\t" << ee.mult << std::endl;
+      fout << i - 1 << " " << i << " " << ee.mult << std::endl;
       Etab[i] = ee.mult;
     }
     auto ee = event_records.back();
-    fout << 99 << "\t" << 100 << "\t" << ee.mult << std::endl;
+    fout << 99 << " " << 100 << " " << ee.mult << std::endl;
     Etab[100] = ee.mult;
     fout.close();
   }
@@ -419,7 +470,7 @@ void Trento3DInitial::Exec() {
   auto ncoll_field = tmp_event.TAB2D_grid();
   JSINFO << density_field.num_elements() << " density elements";
   for (int i = 0; i < density_field.num_elements(); i++) {
-    entropy_density_distribution_.push_back(density_field.data()[i]);
+    entropy_density_distribution_.push_back(density_field.data()[i]);  // Event::Density().data() is in z-major order (zyx = {000, 001, ..., 010, 011, ... 100, 101, ..., 110, 111, ...})
   }
   JSINFO << ncoll_field.num_elements() << " ncoll elements";
   for (int i = 0; i < ncoll_field.num_elements(); i++) {

@@ -27,7 +27,8 @@ using namespace std;
 RegisterJetScapeModule<FreestreamMilneWrapper>
     FreestreamMilneWrapper::reg("FreestreamMilne");
 
-FreestreamMilneWrapper::FreestreamMilneWrapper() {
+FreestreamMilneWrapper::FreestreamMilneWrapper()
+  : input_file_{"freestream_input"} {
   preequilibrium_status_ = NOT_STARTED;
   SetId("Freestream-Milne");
 }
@@ -42,9 +43,8 @@ void FreestreamMilneWrapper::InitializePreequilibrium(
   JSINFO << "Initialize freestream-milne ...";
   VERBOSE(8);
 
-  std::string input_file = GetXMLElementText(
+  input_file_ = GetXMLElementText(
       {"Preequilibrium", "FreestreamMilne", "freestream_input_file"});
-  //is this necessary? if we just force the user to have the 'freestream_input' file in the correct directory
 
   fsmilne_ptr = new FREESTREAMMILNE();
 }
@@ -62,7 +62,7 @@ void FreestreamMilneWrapper::EvolvePreequilibrium() {
   if (preequilibrium_status_ == INIT) {
     JSINFO << "running freestream-milne ...";
     // evolve the medium via freestreaming
-    fsmilne_ptr->run_freestream_milne();
+    fsmilne_ptr->run_freestream_milne(input_file_.c_str());
     preequilibrium_status_ = DONE;
   }
   // now prepare to send the resulting hydro variables to the hydro module by coping hydro vectors to Preequilibrium base class members

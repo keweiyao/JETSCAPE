@@ -49,49 +49,29 @@
     <grid_step_y> 0.3 </grid_step_y>
     <grid_step_z> 0.2 </grid_step_z>
 
-<!--
-    <Trento>
-    <PhysicsInputs  projectile='Pb'
-            target='Pb'
-            sqrts='2760'
-            cross-section='6.4'
-            normalization='13.9'>
-    </PhysicsInputs>
-    <CutInputs  centrality-low='50'
-          centrality-high='60'>
-    </CutInputs>
-    <TransInputs  reduced-thickness='0.0'
-            fluctuation="1.2"
-            nucleon-width="0.9"
-            nucleon-min-dist="1.2">
-    </TransInputs>
-    <LongiInputs  mean-coeff="1.0"
-            std-coeff="3.0"
-            skew-coeff="0.0"
-            skew-type="1"
-            jacobian="0.8">
-    </LongiInputs>
-    </Trento>
--->
     <Trento3D>
-    <PhysicsInputs  projectile='Pb'
-            target='Pb'
-            sqrts='2760'
-            normalization='0.4'
-            mid-power='0.37'>
+    <PhysicsInputs  projectile="Pb"
+            target="Pb"
+            sqrts="2760"
+            mid-norm="0.4"
+            mid-power="0.37">
     </PhysicsInputs>
-    <CutInputs  centrality-low='50'
-          centrality-high='60'>
+    <CutInputs  centrality-low="50"
+          centrality-high="60"
+          etas-shift="0"
+          mult-etas-low="0"
+          mult-etas-high="0">
     </CutInputs>
-    <TransInputs  reduced-thickness='0.0'
+    <TransInputs  reduced-thickness="0.0"
+            form-width="0.6"
             nucleon-width="0.6"
             nucleon-min-dist="0"
             constit-number="3"
             constit-width="0.4">
     </TransInputs>
-    <LongiInputs  fluctuation='0.3'
+    <LongiInputs  fluctuation="0.3"
             kT-min="0.2"
-            shape-alpha="4"
+            shape-alpha="4.0"
             shape-beta="0.4"
             flatness="1.25">
     </LongiInputs>

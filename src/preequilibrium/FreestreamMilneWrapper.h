@@ -16,6 +16,7 @@
 #ifndef FREESTREAMMILNEWRAPPER_H
 #define FREESTREAMMILNEWRAPPER_H
 
+#include <string>
 #include "PreequilibriumDynamics.h"
 #include "FreestreamMilne.cpp"
 
@@ -25,6 +26,8 @@ class FreestreamMilneWrapper : public PreequilibriumDynamics {
 private:
   //int mode; //!< records running mode
   FREESTREAMMILNE *fsmilne_ptr;
+
+  std::string input_file_;
 
   // Allows the registration of the module so that it is available to be used by the Jetscape framework.
   static RegisterJetScapeModule<FreestreamMilneWrapper> reg;

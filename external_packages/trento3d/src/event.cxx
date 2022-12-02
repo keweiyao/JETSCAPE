@@ -56,6 +56,9 @@ Event::Event(const VarMap& var_map)
       // eta_grid_max_(sqrts) is the range of the computing grid
       // it also has a physical meaning though
       eta_grid_max_( std::acosh(.5*sqrts_/0.2) ),
+      etas_shift_(var_map["etas-shift"].as<double>()),
+      mult_etas_low_( std::max(etas_shift_ - eta_grid_max_, var_map["mult-etas-low"].as<double>()) ),
+      mult_etas_high_( std::min(std::max(mult_etas_low_, var_map["mult-etas-high"].as<double>()), etas_shift_ + eta_grid_max_) ),
       nsteps_etas_(var_map["nsteps-etas"].as<int>()),
       detas_(2.*eta_grid_max_/nsteps_etas_),
       dxy_(var_map["grid-step"].as<double>()),
@@ -70,7 +73,9 @@ Event::Event(const VarMap& var_map)
       // Binary collision density grid
       TAB2D_(boost::extents[nsteps_][nsteps_]),
       // 3D initial energy density at tau=0+
-      Density_(boost::extents[nsteps_etas_][nsteps_][nsteps_])
+      Density_(boost::extents[nsteps_etas_][nsteps_][nsteps_]),
+      multiplicity_(std::numeric_limits<double>::quiet_NaN()),
+      fastexp_xa_xb_(-2.*eta_grid_max_, 2.*eta_grid_max_, 4000)
   {
   // light-cone moemtnum compoents of the projectile (per nucleon)
   // P+ = (E+|Pz|)/2 = (sqrts/2.+pabs)/2. = Mproton * exp(ybeam)
@@ -88,6 +93,7 @@ Event::Event(const VarMap& var_map)
   // the central fireball, cannot be larger than one!
   xloss_ = Ncentral/sqrts_; 
   if (xloss_>1.-TINY) {
+      std::cout << "xloss = " << xloss_ << std::endl;
       std::cout << "central fireball too large!" << std::endl;
       exit(-1);
   }
@@ -254,12 +260,17 @@ void Event::compute_density() {
       double TR = pmean(0., ta, tb);
       double etacm = center_of_mass_eta(ta, tb);
       for (int iz = 0; iz < nsteps_etas_; ++iz) {
-        double etas = - eta_grid_max_ + (iz+.5) * detas_; 
+        double etas = etas_shift_ - eta_grid_max_ + (iz+.5) * detas_; 
+        if ((etas <= -eta_grid_max_) || (etas >= eta_grid_max_)) {
+          Density_[iz][iy][ix] = 0.;
+          continue;
+        }
+
         double e_central = (std::abs(etas-etacm)<eta_max_)? 
                 (norm_trento_*TR*central_profile(etas-etacm)) : 0.;
         double e_fb = 0.;
-        double xa = std::exp(-eta_grid_max_ + etas);
-        double xb = std::exp(-eta_grid_max_ - etas);
+        double xa = fastexp_xa_xb_(-eta_max_ + etas);
+        double xb = fastexp_xa_xb_(-eta_max_ - etas);
         e_fb += kT_min_*fa*frag_profile(std::min(1-1e-8,xa))/Nfrag_;
         e_fb += kT_min_*fb*frag_profile(std::min(1-1e-8,xb))/Nfrag_;
         Density_[iz][iy][ix] = e_central + e_fb;
@@ -282,6 +293,30 @@ void Event::compute_density() {
     iycm_[iz] *= dxy_/sum;
     dET_detas_[iz] = sum * dxy_ * dxy_;
   }
+
+  int izlo = static_cast<int>(std::floor( nsteps_etas_ * (mult_etas_low_  - (etas_shift_ - eta_grid_max_)) / (2. * eta_grid_max_) ));
+  int izhi = static_cast<int>(std::floor( nsteps_etas_ * (mult_etas_high_ - (etas_shift_ - eta_grid_max_)) / (2. * eta_grid_max_) ));
+
+  double mult;
+  if (izlo >= izhi) {
+    // single-slice case; gives the density at the indicated slice for backward compatibility
+    mult = dET_detas_[std::min(nsteps_etas_ - 1, izhi)];
+  }
+  else if (izlo >= nsteps_etas_) {
+    mult = dET_detas_[nsteps_etas_ - 1];
+  }
+  else {
+    // multiple-slice case: sum indicated slices to get multiplicity
+    // we could do better interpolation/integration, but simply summing slices (with some extra consideration at the endpoints) yields a less-surprising result
+    mult = dET_detas_[izlo] * ((izlo + 1) - (mult_etas_low_ - (etas_shift_ - eta_grid_max_)) / detas_);  // fraction (0 .. 1] of leftmost slice
+    if (izhi < nsteps_etas_)
+      mult += dET_detas_[izhi] * ((mult_etas_high_ - (etas_shift_ - eta_grid_max_)) / detas_ - izhi);    // fraction [0 .. 1) of rightmost slice
+    for (++izlo; izlo < izhi; ++izlo)
+      mult += dET_detas_[izlo];                                                                          // add whole slices in between
+    mult /= (mult_etas_high_ - mult_etas_low_) / detas_;  // always give an average density so there isn't a dramatic difference in behavior vs the single-slice case (which can be triggered without the user realizing it)
+  }
+
+  multiplicity_ = mult;
 }
 
 void Event::compute_observables() {

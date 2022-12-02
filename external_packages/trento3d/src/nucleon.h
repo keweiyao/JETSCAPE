@@ -118,14 +118,23 @@ class NucleonCommon {
   /// Fast exponential for calculating the thickness profile.
   const FastExp<double> fast_exp_;
 
+  /// Inelastic form factor width:
+  const double form_width_;
+
   /// Gaussian nucleon width.
   const double nucleon_width_;
 
   /// Gaussian constituent width.
   const double constituent_width_;
 
-  /// Number of constituents inside the nucleon.
+  /// Possibly non-integer number of constituents.
+  const double constituent_number_raw_;
+
+  /// Minimum number of constituents inside the nucleon.
   const std::size_t constituent_number_;
+
+  /// Probability of having an additional constituent.
+  const double extra_constituent_probability_;
 
   /// Gaussian width of constituent position sampling distribution.
   const double sampling_width_;
@@ -139,11 +148,25 @@ class NucleonCommon {
   /// Calculate thickness out to this distance from constituent center.
   const double constituent_radius_sq_;
 
+  /// Width of Gaussian thickness function.
+  const double width_sqr_;
+
+  /// Truncate the Gaussian at this radius.
+  const double trunc_radius_sqr_;
+
+  /// Cache (-1/2w^2) for use in the thickness function exponential.
+  /// Yes, this actually makes a speed difference...
+  const double neg_one_div_two_width_sqr_;
+
+  /// WK 1/4w^2
+  const double neg_one_div_four_width_sqr_;
+
+  /// WK 1/4pi
+  const double one_div_four_pi_;
+
   /// Nuclear opacity parameter
   double sigma_partonic_;
-
-  /// Thickness function prefactor = 1/(constituent_number*2*pi*w^2) XXX
-  const double prefactor_;
+  //double sigma_partonic_lonc_, sigma_partonic_hinc_;
 
   /// Tracks binary collisions if true
   const bool calc_ncoll_;
@@ -243,7 +266,9 @@ inline double NucleonCommon::thickness(
       t += frac * fast_exp_(-.5*distance_sq/constituent_width_sq_);
   }
 
-  return prefactor_ * t;
+  return math::double_constants::one_div_two_pi
+        /constituent_width_sq_/constituent_number_raw_
+        * t;
 }
 
 inline double NucleonCommon::deterministic_thickness(
@@ -256,12 +281,15 @@ inline double NucleonCommon::deterministic_thickness(
       t += fast_exp_(-.5*distance_sq/constituent_width_sq_);
   }
 
-  return prefactor_ * t;
+  return math::double_constants::one_div_two_pi
+        /constituent_width_sq_/constituent_number_raw_
+        * t;
 }
 
-// WK
 inline double NucleonCommon::norm_Tpp(double bpp_sqr) const  {
-  return prefactor_ * constituent_number_ * std::exp(-prefactor_ * M_PI * constituent_number_ * bpp_sqr / 2.) / 2.;  // TODO: verify this, and use fast_exp_ (will need to adjust xmin in constructor)
+  return one_div_four_pi_
+        /constituent_width_sq_
+        * std::exp(-.25 * bpp_sqr / constituent_width_sq_);  // TODO: verify this, and use fast_exp_ (will need to adjust xmin in constructor)
 }
 
 inline double NucleonCommon::fragmentation(
@@ -275,7 +303,9 @@ inline double NucleonCommon::fragmentation(
       t += frac * fast_exp_(-.5*distance_sq/constituent_width_sq_);
   }
 
-  return prefactor_ * t;
+  return math::double_constants::one_div_two_pi
+        /constituent_width_sq_/constituent_number_raw_
+        * t;
 }
 
 inline bool NucleonCommon::participate(NucleonData& A, NucleonData& B) const {
@@ -292,13 +322,26 @@ inline bool NucleonCommon::participate(NucleonData& A, NucleonData& B) const {
   sample_constituent_positions(A);
   sample_constituent_positions(B);
 
+  
+
+  //*** we will not compute this in a fluctuating proton way
+  // instead, compute it as the standard round proton
+  /*
   auto overlap = 0.;
   for (const auto& qA : A.constituents_) {
     for (const auto& qB : B.constituents_) {
       auto distance_sq = sqr(qA.x - qB.x) + sqr(qA.y - qB.y);
       overlap += std::exp(-.25*distance_sq/constituent_width_sq_);
     }
-  }
+  }*/
+
+
+
+  //double sigma;
+  //if (A.constituents_.size() == B.constituents_.size())
+  //  sigma = ((A.constituents_.size() == constituent_number_) ? sigma_partonic_lonc_ : sigma_partonic_hinc_);
+  //else
+  //  sigma = (sigma_partonic_lonc_ + sigma_partonic_hinc_) / 2.;
 
   // The probability is
   //   P = 1 - exp(...)
@@ -310,9 +353,12 @@ inline bool NucleonCommon::participate(NucleonData& A, NucleonData& B) const {
   //   (1 - P) > (1 - U)
   // or equivalently
   //   (1 - P) < U
-  auto one_minus_prob = std::exp(
-      -sigma_partonic_ * prefactor_/(2.*constituent_number_) * overlap
-      );
+  /*auto one_minus_prob = std::exp(
+      -sigma * prefactor_/(2.*constituent_number_raw_) * overlap
+      ); */
+
+  double overlap = std::exp(-distance_sq/4./form_width_/form_width_);
+  auto one_minus_prob  = std::exp(-sigma_partonic_*overlap/4./M_PI/form_width_/form_width_);
 
   // Sample one random number and decide if this pair participates.
   if (one_minus_prob < random::canonical<double>()) {
@@ -328,7 +374,8 @@ inline void NucleonCommon::sample_constituent_positions(NucleonData& nucleon) co
   if (nucleon.constituents_exist())
     return;
 
-  nucleon.constituents_.resize(static_cast<std::size_t>(constituent_number_));
+  auto nc = constituent_number_ + (((extra_constituent_probability_> 0.) && (random::canonical<double>() < extra_constituent_probability_)) ? 1 : 0);  // for compatibility, don't draw from PRNG if n_c is a whole number
+  nucleon.constituents_.resize(nc);
 
   double xcom = 0.0;
   double ycom = 0.0;
@@ -348,8 +395,8 @@ inline void NucleonCommon::sample_constituent_positions(NucleonData& nucleon) co
     ycom += yloc;
   }
 
-  xcom /= constituent_number_;
-  ycom /= constituent_number_;
+  xcom /= nc;
+  ycom /= nc;
 
   // Place nucleon at the desired position
   for (auto&& constituent : nucleon.constituents_) {
@@ -367,9 +414,10 @@ inline void NucleonCommon::set_participant(NucleonData& nucleon) const {
   nucleon.is_participant_ = true;
 }
 
+/*
 class MonteCarloCrossSection {
  public:
-  MonteCarloCrossSection(const VarMap& var_map);
+  MonteCarloCrossSection(const VarMap& var_map, bool round_up_constituents);
 
   double operator() (const double sigma_partonic) const;
 
@@ -388,5 +436,5 @@ class MonteCarloCrossSection {
   const int n_pass = 10000;
   const double tolerance = 0.001;
 };
-
+*/
 }  // namespace trento3d
