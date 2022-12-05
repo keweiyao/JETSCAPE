@@ -37,7 +37,7 @@ option(unittests "Build all unittests." ON)
 option(USE_FREESTREAM "Build tests for freestream-milne" OFF)
 if (USE_FREESTREAM)
   message("Includes for freestream ...")
-  include_directories(./external_packages/freestream-milne/src)
+  include_directories(./external_packages/freestream-milne ./external_packages/freestream-milne/src)
 endif (USE_FREESTREAM)
 
 # CLVisc. Trun on with 'cmake -DUSE_CLVISC=ON'.
@@ -174,6 +174,7 @@ install(
   "${CMAKE_SOURCE_DIR}/external_packages/"
   "${CMAKE_SOURCE_DIR}/external_packages/iSS/src/"
   "${CMAKE_SOURCE_DIR}/external_packages/iS3D/src/cpp/"
+  "${CMAKE_SOURCE_DIR}/external_packages/freestream-milne/src/"
   "${CMAKE_SOURCE_DIR}/external_packages/hydro_from_external_file/src/"
   "${CMAKE_SOURCE_DIR}/external_packages/music/src/"
   "${CMAKE_SOURCE_DIR}/external_packages/trento/src/"
@@ -186,6 +187,7 @@ install(
   ## Necessary to exclude directories to prevent a whole (mostly empty) hierarchy
   PATTERN "gtl" EXCLUDE
   PATTERN "iSS" EXCLUDE
+  PATTERN "freestream-milne" EXCLUDE
   PATTERN "hydro_from_external_file" EXCLUDE
   PATTERN "music" EXCLUDE
   PATTERN "clvisc" EXCLUDE
@@ -232,6 +234,7 @@ install(
   "${PROJECT_BINARY_DIR}/external_packages/iSS/src/"
   "${PROJECT_BINARY_DIR}/external_packages/iS3D/src/cpp/"
   "${PROJECT_BINARY_DIR}/../external_packages/smash/smash_code/build/src/"
+  "${PROJECT_BINARY_DIR}/external_packages/freestream-milne/src/"
   "${PROJECT_BINARY_DIR}/external_packages/music/src/"
   "${PROJECT_BINARY_DIR}/external_packages/trento/src/"
   "${PROJECT_BINARY_DIR}/external_packages/clvisc_wrapper/"

@@ -3,6 +3,10 @@
 // MIT License
 
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <boost/program_options/variables_map.hpp>
@@ -252,45 +256,68 @@ void Event::compute_density() {
   std::fill(Density_.origin(), 
             Density_.origin()+Density_.num_elements(), 0.);  
 
+  // To parallelize density computation, we want to run the outermost loop in parallel,
+  // so that we get the most work out of each thread for the cost of overhead.
+  // Making the z loop outermost gives threads the best data locality (since Density_ is z-major),
+  // but having the z loop innermost avoids redundant computation of TR and etacm;
+  // let's precompute TR and etacm, and have the z loop be outermost.
+
+  Grid TR{boost::extents[nsteps_][nsteps_]};
+  Grid etaCM{boost::extents[nsteps_][nsteps_]};
+
   for (int iy = 0; iy < nsteps_; ++iy) {
     for (int ix = 0; ix < nsteps_; ++ix) {
-      double ta = TA_[iy][ix], fa = FA_[iy][ix];
-      double tb = TB_[iy][ix], fb = FB_[iy][ix];
-      if (ta<TINY && tb<TINY && fa < TINY && fb < TINY) continue;
-      double TR = pmean(0., ta, tb);
-      double etacm = center_of_mass_eta(ta, tb);
-      for (int iz = 0; iz < nsteps_etas_; ++iz) {
-        double etas = etas_shift_ - eta_grid_max_ + (iz+.5) * detas_; 
-        if ((etas <= -eta_grid_max_) || (etas >= eta_grid_max_)) {
-          Density_[iz][iy][ix] = 0.;
-          continue;
-        }
+      double ta = TA_[iy][ix];
+      double tb = TB_[iy][ix];
+      TR[iy][ix] = pmean(0., ta, tb);
+      etaCM[iy][ix] = center_of_mass_eta(ta, tb);
+    }
+  }
+
+  #pragma omp parallel for
+  for (int iz = 0; iz < nsteps_etas_; ++iz) {
+    double etas = etas_shift_ - eta_grid_max_ + (iz+.5) * detas_; 
+    if ((etas <= -eta_grid_max_) || (etas >= eta_grid_max_)) {
+      // Density_[iz] was already filled with zeroes above, no need to zero it
+      ixcm_[iz] = 0.;
+      iycm_[iz] = 0.;
+      dET_detas_[iz] = 0.;
+      continue;
+    }
+
+    // compute energy density, multiplicity, and CoM
+    auto slice = Density_[iz];  // writable view into Density_
+    double sum = 0., xcm = 0., ycm = 0.;
+
+    for (int iy = 0; iy < nsteps_; ++iy) {
+      for (int ix = 0; ix < nsteps_; ++ix) {
+        double tr = TR[iy][ix], etacm = etaCM[iy][ix];
+        double fa = FA_[iy][ix];
+        double fb = FB_[iy][ix];
+        if (tr < TINY && fa < TINY && fb < TINY) continue;
+
+        // central_profile, frag_profile, and FastExp operator are all const (no side effects), safe to parallelize
+        //   (and Boost::multi_array accesses are presumably thread-safe)
 
         double e_central = (std::abs(etas-etacm)<eta_max_)? 
-                (norm_trento_*TR*central_profile(etas-etacm)) : 0.;
+                (norm_trento_*tr*central_profile(etas-etacm)) : 0.;
         double e_fb = 0.;
         double xa = fastexp_xa_xb_(-eta_max_ + etas);
         double xb = fastexp_xa_xb_(-eta_max_ - etas);
         e_fb += kT_min_*fa*frag_profile(std::min(1-1e-8,xa))/Nfrag_;
         e_fb += kT_min_*fb*frag_profile(std::min(1-1e-8,xb))/Nfrag_;
-        Density_[iz][iy][ix] = e_central + e_fb;
-      }
-    }
-  }
-  // compute multiplicity and com
-  for (int iz = 0; iz < nsteps_etas_; ++iz) { 
-    double sum = 0.;
-    for (int iy = 0; iy < nsteps_; ++iy) {
-      for (int ix = 0; ix < nsteps_; ++ix) {
-        double dE = Density_[iz][iy][ix];
+        auto dE = e_central + e_fb;
+        slice[iy][ix] = dE;
+
         if (dE<TINY) continue;
-        ixcm_[iz] += ix*dE;
-        iycm_[iz] += iy*dE;
+        xcm += ix*dE;
+        ycm += iy*dE;
         sum += dE;
       }
     }
-    ixcm_[iz] *= dxy_/sum;
-    iycm_[iz] *= dxy_/sum;
+
+    ixcm_[iz] = xcm * dxy_/sum;
+    iycm_[iz] = ycm * dxy_/sum;
     dET_detas_[iz] = sum * dxy_ * dxy_;
   }
 

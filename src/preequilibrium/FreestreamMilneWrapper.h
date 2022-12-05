@@ -18,7 +18,7 @@
 
 #include <string>
 #include "PreequilibriumDynamics.h"
-#include "FreestreamMilne.cpp"
+#include "FreestreamMilne.h"
 
 using namespace Jetscape;
 

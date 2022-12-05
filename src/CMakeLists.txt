@@ -101,6 +101,10 @@ if ( USE_MUSIC )
   target_link_libraries (JetScape music )
 endif()
 
+if ( USE_FREESTREAM )
+  target_link_libraries (JetScape freestream_lib )
+endif()
+
 if ( USE_ISS )
   target_link_libraries (JetScape iSS )
 endif()

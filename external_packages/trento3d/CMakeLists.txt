@@ -18,6 +18,16 @@ if(STATIC)
 endif()
 
 
+# OpenMP support, based on MUSIC/CMakeLists.txt
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+    message("Using Clang compiler without OpenMP parallelization... ")
+else ()
+    find_package(OpenMP)
+    if (OpenMP_FOUND)
+        string(APPEND CMAKE_CXX_FLAGS " ${OpenMP_CXX_FLAGS}")
+    endif ()
+endif()
+
 # Find and use Boost.
 find_package(Boost 1.71 REQUIRED COMPONENTS filesystem program_options system)
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
