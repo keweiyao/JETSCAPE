@@ -53,6 +53,7 @@ void iS3DWrapper::Exec()
 void iS3DWrapper::Clear() 
 {
     VERBOSE(2) << "Finish iS3D particle sampling";
+    SoftParticlization::Clear();
 }
 
 void iS3DWrapper::PassHadronListToJetscape()
